@@ -3,7 +3,7 @@ set -euo pipefail
 
 LOG_FILE="/var/log/postinstall.log"
 LOCK_FILE="/var/lock/postinstall.lock"
-BASE_URL="https://raw.githubusercontent.com/AlchemiistCreative/postinstall/refs/heads/src"
+BASE_URL="https://raw.githubusercontent.com/AlchemiistCreative/postinstall/refs/heads/main/src"
 
 exec > >(tee -a "$LOG_FILE") 2>&1
 
