@@ -1,0 +1,7 @@
+*.key
+*.pem
+*.crt
+*.env
+*.bak
+*.log
+id_rsa*
