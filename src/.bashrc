@@ -709,108 +709,78 @@ ram_usage() {
 
 
 alias cpu="grep 'cpu ' /proc/stat | awk '{usage=(\$2+\$4)*100/(\$2+\$4+\$5)} END {print usage}' | awk '{printf(\"%.1f\n\", \$1)}'"
-
 function __setprompt {
-    local LAST_COMMAND=$? # Must come first!
+    local LAST_COMMAND=$?
 
-    # Define colors
+    # Synthwave / rétro-futuriste color palette
     local WHITE="\033[1;37m"
     local GRAY="\033[0;37m"
-    local LIGHTGRAY="\033[0;37m"
-    local GREEN="\033[0;32m"
-    local LIGHTGREEN="\033[1;32m"
-    local CYAN="\033[0;36m"
-    local LIGHTCYAN="\033[1;36m"
-    local BLUE="\033[0;34m"
-    local LIGHTBLUE="\033[1;34m"
-    local MAGENTA="\033[0;35m"
-    local LIGHTMAGENTA="\033[1;35m"
-    local YELLOW="\033[1;33m"
-    local RED="\033[0;31m"
-    local LIGHTRED="\033[1;31m"
-    local BROWN="\033[0;33m"
     local DARKGRAY="\033[1;30m"
+    local NEON_PINK="\033[1;35m"       # user@host
+    local NEON_BLUE="\033[1;36m"       # cwd
+    local ELECTRIC_BLUE="\033[1;94m"   # kube_ps1
+    local ACID_GREEN="\033[1;92m"      # git
+    local CYBER_YELLOW="\033[1;33m"    # time / RAM
+    local LASER_RED="\033[1;31m"       # errors
     local NOCOLOR="\033[0m"
 
     PS1=""
 
-    # Mode SHORT
     if [[ "$SHORT" == "true" ]]; then
-        PS1="\[${RED}\]\u@\h"
-        PS1+="\[${DARKGRAY}\]:\[${BROWN}\]\w"
-        PS1+=" \[${GREEN}\]\$(__git_branch)"
+        PS1="\[${NEON_PINK}\]\u@\h\[${GRAY}\]:\[${NEON_BLUE}\]\w"
+        PS1+=" \[${ACID_GREEN}\]\$(__git_branch)"
         if type kube_ps1 &>/dev/null; then
-            PS1+=" \[${CYAN}\]\$(kube_ps1)"
+            PS1+=" \[${ELECTRIC_BLUE}\]\$(kube_ps1)"
         fi
-        PS1+=" 🐼\n\[${GREEN}\]>\[${NOCOLOR}\] "
+        PS1+=" 🐼\n"
+        PS1+="\[${ACID_GREEN}\]>\[${NOCOLOR}\] "
         return
     fi
 
-    # Erreur précédente
+    # Error code if needed
     if [[ $LAST_COMMAND != 0 ]]; then
-        PS1="\[${DARKGRAY}\](\[${LIGHTRED}\]ERROR\[${DARKGRAY}\])-(\[${RED}\]Exit Code \[${LIGHTRED}\]${LAST_COMMAND}\[${DARKGRAY}\])-(\[${RED}\]"
-        case $LAST_COMMAND in
-            1) PS1+="General error" ;;
-            2) PS1+="Missing keyword, command, or permission problem" ;;
-            126) PS1+="Permission problem or command is not an executable" ;;
-            127) PS1+="Command not found" ;;
-            128) PS1+="Invalid argument to exit" ;;
-            129) PS1+="Fatal error signal 1" ;;
-            130) PS1+="Script terminated by Control-C" ;;
-            131) PS1+="Fatal error signal 3" ;;
-            132) PS1+="Fatal error signal 4" ;;
-            133) PS1+="Fatal error signal 5" ;;
-            134) PS1+="Fatal error signal 6" ;;
-            135) PS1+="Fatal error signal 7" ;;
-            136) PS1+="Fatal error signal 8" ;;
-            137) PS1+="Fatal error signal 9" ;;
-            *) PS1+="Unknown error code" ;;
-        esac
-        PS1+="\[${DARKGRAY}\])\[${NOCOLOR}\]\n"
+        PS1+="\[${DARKGRAY}\](\[${LASER_RED}\]ERROR $LAST_COMMAND\[${DARKGRAY}\])-"
     fi
 
-    # Date et heure
-    PS1+="\[${DARKGRAY}\](\[$CYAN\]\$(date +%a) \$(date +%b-'%-m')"
-    PS1+="\[$BLUE\]\$(date +'%I:%M:%S%p')\[$DARKGRAY\])"
+    # (date | time)
+    PS1+="\[${DARKGRAY}\](\[${CYBER_YELLOW}\]\$(date +%a)\[${DARKGRAY}\] | \[${CYBER_YELLOW}\]\$(date +%I:%M:%S%p)\[${DARKGRAY}\])"
 
-    # CPU et RAM
-    PS1+="-\[$MAGENTA\]CPU \$(cpu)% \[$DARKGRAY\]|\[$MAGENTA\] RAM \$(ram_usage)\[$DARKGRAY\])"
+    # -(CPU | RAM)
+    PS1+="-\[\033[1;33m\](CPU \$(cpu)% | RAM \$(ram_usage))"
 
-    # Utilisateur / hôte / chemin
-    PS1+="-\[$RED\]\u@\h\[$DARKGRAY\]:\[$BROWN\]\w\[$DARKGRAY\]"
+    # -(user@host:pwd)
+    PS1+="-\[\033[1;35m\](\u@\h:\[\033[1;36m\]\w\[\033[1;35m\])"
 
-    # Sommaire répertoire
-    PS1+="(\[$GREEN\]\$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')"
-    PS1+="\[$DARKGRAY\]:\[$GREEN\]\$(/bin/ls -A -1 | /usr/bin/wc -l)\[$DARKGRAY\])"
+    # -(dir size | count)
+    PS1+="-\[\033[1;92m\](\$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //') | \$(/bin/ls -A -1 | /usr/bin/wc -l | tr -d ' '))"
 
-    # Git
-    PS1+="\[$GREEN\]\$(__git_branch)"
+    # -(git)
+    PS1+="-\[\033[1;92m\](\$(__git_branch))"
 
-    # Kube PS1
+    # -(kube)
     if [ -s ~/.k8s-tools/kube-ps1.sh ]; then
         source ~/.k8s-tools/kube-ps1.sh
     fi
     if type kube_ps1 &>/dev/null; then
-        PS1+="\[$CYAN\]\$(kube_ps1)"
+        PS1+="-\[\033[1;94m\](\$(kube_ps1))"
     fi
 
-    # Panda
+    # 🐼 newline
     PS1+=" 🐼\n"
 
-    # Prompt final
+    # Final prompt char
     if [[ $EUID -ne 0 ]]; then
-        PS1+="\[${RED}\]>\[${NOCOLOR}\] "
+        PS1+="\[${ACID_GREEN}\]>\[${NOCOLOR}\] "
     else
-        PS1+="\[${GREEN}\]>\[${NOCOLOR}\] "
+        PS1+="\[${LASER_RED}\]>\[${NOCOLOR}\] "
     fi
 
-    # Autres prompts
     PS2="\[${DARKGRAY}\]>\[${NOCOLOR}\] "
     PS3='Please enter a number from above list: '
     PS4='\[${DARKGRAY}\]+\[${NOCOLOR}\] '
 }
 
-# Default mode
+# Mode par défaut : full
 export SHORT=false
 __setprompt
 PROMPT_COMMAND=__setprompt
