@@ -1,10 +1,3 @@
-J'aimerais qu'on ajoute le statut git dans le PS1 aussi
-Mais c'est pas tout, ça serait super d'avoir une fonction short() and full()
-
-les fonctions modifirais des variables d'environnement, si short() set SHORT=true full() set SHORT=false
-
-basé sur ça on pourrait avoir un PS1 plus court avec username/hostname / statut git et k8s
-
 #!/bin/bash
 iatest=$(expr index "$-" i)
 
