@@ -1,42 +1,74 @@
+J'aimerais qu'on ajoute le statut git dans le PS1 aussi
+Mais c'est pas tout, ça serait super d'avoir une fonction short() and full()
+
+les fonctions modifirais des variables d'environnement, si short() set SHORT=true full() set SHORT=false
+
+basé sur ça on pourrait avoir un PS1 plus court avec username/hostname / statut git et k8s
+
 #!/bin/bash
 iatest=$(expr index "$-" i)
 
 #######################################################
-# SOURCED ALIAS'S AND SCRIPTS BY zachbrowne.me
+#
+# Author: Alchemist
+# 
 #######################################################
 
-# Check if gcloud is installed
-if command -v gcloud &> /dev/null; then
-  gssh() {
-    if [ $# -ne 2 ]; then
-      echo "Usage: gssh <INSTANCE_NAME> <ZONE>"
-      return 1
-    fi
-    gcloud compute ssh "$1" --tunnel-through-iap --zone="$2"
-  }
-else
-  echo "gcloud CLI not found. Install it to use 'gssh'."
-fi
+#### Variables
 
-
-if grep -q "microsoft" /proc/version; then                                                                                
-  alias gtc='cd /mnt/c/WSL'
-else
-  echo "Not running on WSL"
-fi
-
+ISKUBEINSTALLED=0
 
 # Source global definitions
 if [ -f /etc/bashrc ]; then
          . /etc/bashrc
 fi
 
-# Enable bash programmable completion features in interactive shells
-if [ -f /usr/share/bash-completion/bash_completion ]; then
+
+###### Check if bash-completion is installed
+if [ ! -f /usr/share/bash-completion/bash_completion ] && [ ! -f /etc/bash_completion ]; then
+    echo "bash-completion not installed ❌"
+    echo "Installing it..."
+
+    distro=$(distribution)
+
+    case $distro in
+        redhat)
+            if command -v dnf &>/dev/null; then
+                sudo dnf install -y bash-completion
+            else
+                sudo yum install -y bash-completion
+            fi
+            ;;
+        debian)
+            sudo apt-get update -y
+            sudo apt-get install -y bash-completion
+            ;;
+        suse)
+            sudo zypper install -y bash-completion
+            ;;
+        gentoo)
+            sudo emerge bash-completion
+            ;;
+        mandriva)
+            sudo urpmi bash-completion
+            ;;
+        slackware)
+            echo "⚠️ Slackware detected: install bash-completion manually."
+            ;;
+        *)
+            echo "⚠️ Unknown distribution, please install bash-completion manually."
+            ;;
+    esac
+else
+    # Already installed, source it
+    if [ -f /usr/share/bash-completion/bash_completion ]; then
         . /usr/share/bash-completion/bash_completion
-elif [ -f /etc/bash_completion ]; then
+    elif [ -f /etc/bash_completion ]; then
         . /etc/bash_completion
+    fi
 fi
+
+
 
 #######################################################
 # EXPORTS
@@ -93,6 +125,68 @@ export LESS_TERMCAP_so=$'\E[01;44;33m'
 export LESS_TERMCAP_ue=$'\E[0m'
 export LESS_TERMCAP_us=$'\E[01;32m'
 
+#######################################################
+# WSL SPECIFIC ALIAS'S
+#######################################################
+
+if grep -q "microsoft" /proc/version; then                                                                                
+  alias gtc='cd /mnt/c/WSL'
+fi
+
+#######################################################
+# GKE SPECIFIC ALIAS'S
+#######################################################
+# Check if gcloud is installed
+if command -v gcloud &> /dev/null; then
+  gssh() {
+    if [ $# -ne 2 ]; then
+      echo "Usage: gssh <INSTANCE_NAME> <ZONE>"
+      return 1
+    fi
+    gcloud compute ssh "$1" --tunnel-through-iap --zone="$2"
+  }
+else
+  echo "gcloud CLI not found. Install it to use 'gssh'."
+fi
+
+if command -v gcloud &> /dev/null; then                                                                         
+  alias g='gcloud'
+fi
+
+#######################################################
+# K8S SPECIFIC ALIAS'S
+#######################################################
+if command -v kubectl &> /dev/null; then
+  # Source kubectl completion
+  source <(kubectl completion bash)
+
+  # Aliases
+  alias k='kubectl'
+  alias kg='kubectl get'
+  alias kgp='kubectl get pods'
+  alias kgs='kubectl get svc'
+  alias kga='kubectl get all --all-namespaces'
+  alias kcc='kubectl config current-context'
+  alias kuc='kubectl config use-context'
+  alias kgsp='kubectl get pods -n kube-system'
+
+  # Register completions for aliases
+  complete -F __start_kubectl k
+  complete -F __start_kubectl kg
+  complete -F __start_kubectl kgp
+  complete -F __start_kubectl kgs
+  complete -F __start_kubectl kga
+  complete -F __start_kubectl kcc
+  complete -F __start_kubectl kuc
+  complete -F __start_kubectl kgsp
+
+  mkdir -p ~/.k8s-tools
+  if [ ! -s ~/.k8s-tools/kube-ps1.sh ]; then
+      curl -sLo ~/.k8s-tools/kube-ps1.sh https://raw.githubusercontent.com/jonmosco/kube-ps1/master/kube-ps1.sh
+  fi
+  source ~/.k8s-tools/kube-ps1.sh
+  
+fi
 #######################################################
 # MACHINE SPECIFIC ALIAS'S
 #######################################################
@@ -232,6 +326,21 @@ alias sha1='openssl sha1'
 #######################################################
 # SPECIAL FUNCTIONS
 #######################################################
+short() {
+  export SHORT=true
+  __setprompt
+}
+
+full() {
+  export SHORT=false
+  __setprompt
+}
+
+git_branch() {
+  if git rev-parse --git-dir > /dev/null 2>&1; then
+    echo -n " (git:$(git rev-parse --abbrev-ref HEAD 2>/dev/null))"
+  fi
+}
 
 # Use the best version of pico installed
 edit ()
@@ -379,44 +488,45 @@ pwdtail ()
 }
 
 # Show the current distribution
-distribution ()
-{
-        local dtype
-        # Assume unknown
-        dtype="unknown"
+distribution() {
+    local dtype="unknown"
 
-        # First test against Fedora / RHEL / CentOS / generic Redhat derivative
-        if [ -r /etc/rc.d/init.d/functions ]; then
-                source /etc/rc.d/init.d/functions
-                [ zz`type -t passed 2>/dev/null` == "zzfunction" ] && dtype="redhat"
-
-        # Then test against SUSE (must be after Redhat,
-        # I've seen rc.status on Ubuntu I think? TODO: Recheck that)
-        elif [ -r /etc/rc.status ]; then
-                source /etc/rc.status
-                [ zz`type -t rc_reset 2>/dev/null` == "zzfunction" ] && dtype="suse"
-
-        # Then test against Debian, Ubuntu and friends
-        elif [ -r /lib/lsb/init-functions ]; then
-                source /lib/lsb/init-functions
-                [ zz`type -t log_begin_msg 2>/dev/null` == "zzfunction" ] && dtype="debian"
-
-        # Then test against Gentoo
-        elif [ -r /etc/init.d/functions.sh ]; then
-                source /etc/init.d/functions.sh
-                [ zz`type -t ebegin 2>/dev/null` == "zzfunction" ] && dtype="gentoo"
-
-        # For Mandriva we currently just test if /etc/mandriva-release exists
-        # and isn't empty (TODO: Find a better way :)
-        elif [ -s /etc/mandriva-release ]; then
+    if [ -f /etc/os-release ]; then
+        source /etc/os-release
+        case "$ID" in
+            rocky|rhel|centos|fedora|almalinux)
+                dtype="redhat"
+                ;;
+            debian|ubuntu|linuxmint|pop)
+                dtype="debian"
+                ;;
+            opensuse*|sles)
+                dtype="suse"
+                ;;
+            gentoo)
+                dtype="gentoo"
+                ;;
+            mandriva|mandrake)
                 dtype="mandriva"
-
-        # For Slackware we currently just test if /etc/slackware-version exists
-        elif [ -s /etc/slackware-version ]; then
+                ;;
+            slackware)
                 dtype="slackware"
+                ;;
+            *)
+                dtype="unknown"
+                ;;
+        esac
+    elif [ -f /etc/redhat-release ]; then
+        dtype="redhat"
+    elif [ -f /etc/SuSE-release ]; then
+        dtype="suse"
+    elif [ -f /etc/debian_version ]; then
+        dtype="debian"
+    elif [ -f /etc/slackware-version ]; then
+        dtype="slackware"
+    fi
 
-        fi
-        echo $dtype
+    echo "$dtype"
 }
 
 # Show the current version of the operating system
@@ -593,128 +703,61 @@ trim()
         echo -n "$var"
 }
 
+ram_usage() {
+  awk '
+    $1=="MemAvailable:"{avail=$2}
+    $1=="MemTotal:"{total=$2}
+    END{printf("%.1f/%.1fG", avail/1024/1024, total/1024/1024)}' /proc/meminfo
+}
+
 #######################################################
 # Set the ultimate amazing command prompt
 #######################################################
 
+
 alias cpu="grep 'cpu ' /proc/stat | awk '{usage=(\$2+\$4)*100/(\$2+\$4+\$5)} END {print usage}' | awk '{printf(\"%.1f\n\", \$1)}'"
-function __setprompt
-{
-        local LAST_COMMAND=$? # Must come first!
 
-        # Define colors
-        local LIGHTGRAY="\033[0;37m"
-        local WHITE="\033[1;37m"
-        local BLACK="\033[0;30m"
-        local DARKGRAY="\033[1;30m"
-        local RED="\033[0;31m"
-        local LIGHTRED="\033[1;31m"
-        local GREEN="\033[0;32m"
-        local LIGHTGREEN="\033[1;32m"
-        local BROWN="\033[0;33m"
-        local YELLOW="\033[1;33m"
-        local BLUE="\033[0;34m"
-        local LIGHTBLUE="\033[1;34m"
-        local MAGENTA="\033[0;35m"
-        local LIGHTMAGENTA="\033[1;35m"
-        local CYAN="\033[0;36m"
-        local LIGHTCYAN="\033[1;36m"
-        local NOCOLOR="\033[0m"
+function __setprompt {
+    local LAST_COMMAND=$?
 
-        # Show error exit code if there is one
-        if [[ $LAST_COMMAND != 0 ]]; then
-                # PS1="\[${RED}\](\[${LIGHTRED}\]ERROR\[${RED}\])-(\[${LIGHTRED}\]Exit Code \[${WHITE}\]${LAST_COMMAND}\[${RED}\])-(\[${LIGHTRED}\]"
-                PS1="\[${DARKGRAY}\](\[${LIGHTRED}\]ERROR\[${DARKGRAY}\])-(\[${RED}\]Exit Code \[${LIGHTRED}\]${LAST_COMMAND}\[${DARKGRAY}\])-(\[${RED}\]"
-                if [[ $LAST_COMMAND == 1 ]]; then
-                        PS1+="General error"
-                elif [ $LAST_COMMAND == 2 ]; then
-                        PS1+="Missing keyword, command, or permission problem"
-                elif [ $LAST_COMMAND == 126 ]; then
-                        PS1+="Permission problem or command is not an executable"
-                elif [ $LAST_COMMAND == 127 ]; then
-                        PS1+="Command not found"
-                elif [ $LAST_COMMAND == 128 ]; then
-                        PS1+="Invalid argument to exit"
-                elif [ $LAST_COMMAND == 129 ]; then
-                        PS1+="Fatal error signal 1"
-                elif [ $LAST_COMMAND == 130 ]; then
-                        PS1+="Script terminated by Control-C"
-                elif [ $LAST_COMMAND == 131 ]; then
-                        PS1+="Fatal error signal 3"
-                elif [ $LAST_COMMAND == 132 ]; then
-                        PS1+="Fatal error signal 4"
-                elif [ $LAST_COMMAND == 133 ]; then
-                        PS1+="Fatal error signal 5"
-                elif [ $LAST_COMMAND == 134 ]; then
-                        PS1+="Fatal error signal 6"
-                elif [ $LAST_COMMAND == 135 ]; then
-                        PS1+="Fatal error signal 7"
-                elif [ $LAST_COMMAND == 136 ]; then
-                        PS1+="Fatal error signal 8"
-                elif [ $LAST_COMMAND == 137 ]; then
-                        PS1+="Fatal error signal 9"
-                elif [ $LAST_COMMAND -gt 255 ]; then
-                        PS1+="Exit status out of range"
-                else
-                        PS1+="Unknown error code"
-                fi
-                PS1+="\[${DARKGRAY}\])\[${NOCOLOR}\]\n"
-        else
-                PS1=""
+    local DARKGRAY="\033[1;30m"
+    local RED="\033[0;31m"
+    local GREEN="\033[0;32m"
+    local BROWN="\033[0;33m"
+    local YELLOW="\033[1;33m"
+    local CYAN="\033[0;36m"
+    local NOCOLOR="\033[0m"
+
+    PS1=""
+
+    if [[ $LAST_COMMAND != 0 ]]; then
+        PS1+="\[${DARKGRAY}\](\[${RED}\]Exit:$LAST_COMMAND\[${DARKGRAY}\])"
+    fi
+
+    if [[ "$SHORT" == "true" ]]; then
+        # Prompt court
+        PS1+="\[\e[0;33m\]\u@\h\[\e[0m\]:\[\e[0;36m\]\w\[\e[0m\]"
+        PS1+="\[\e[0;32m\]\$(git_branch)\[\e[0m\]"
+        if type kube_ps1 &>/dev/null; then
+            PS1+="\[\e[0;36m\]\$(kube_ps1)\[\e[0m\]"
         fi
-
-        # Date
-        PS1+="\[${DARKGRAY}\](\[${CYAN}\]\$(date +%a) $(date +%b-'%-m')" # Date
-        PS1+="${BLUE} $(date +'%-I':%M:%S%P)\[${DARKGRAY}\])-" # Time
-
-        # CPU
-        PS1+="(\[${MAGENTA}\]CPU $(cpu)%"
-
-        # Jobs
-        PS1+="\[${DARKGRAY}\]:\[${MAGENTA}\]\j"
-
-        # Network Connections (for a server - comment out for non-server)
-        PS1+="\[${DARKGRAY}\]:\[${MAGENTA}\]Net $(awk 'END {print NR}' /proc/net/tcp)"
-
-        PS1+="\[${DARKGRAY}\])-"
-
-        # User and server
-        local SSH_IP=`echo $SSH_CLIENT | awk '{ print $1 }'`
-        local SSH2_IP=`echo $SSH2_CLIENT | awk '{ print $1 }'`
-        if [ $SSH2_IP ] || [ $SSH_IP ] ; then
-                PS1+="(\[${RED}\]\u@\h"
-        else
-                PS1+="(\[${RED}\]\u"
+    else
+        # Prompt complet (comme tu as déjà)
+        PS1+="\n\[${DARKGRAY}\](\[${CYAN}\]\$(date +%a) $(date +%b-'%-m') \$(date +'%-I':%M:%S%P)\[${DARKGRAY}\])"
+        PS1+="(\[${RED}\]\u@$(hostname -f 2>/dev/null || hostname)\[${DARKGRAY}\]:\[${BROWN}\]\w\[${DARKGRAY}\])"
+        PS1+="\n\[${GREEN}\]Git:\$(git_branch)\[${NOCOLOR}\]"
+        if type kube_ps1 &>/dev/null; then
+            PS1+=" \[${YELLOW}\]\$(kube_ps1)\[${DARKGRAY}\]"
         fi
+        PS1+=" 🐼\n"
+    fi
 
-        # Current directory
-        PS1+="\[${DARKGRAY}\]:\[${BROWN}\]\w\[${DARKGRAY}\])-"
-
-        # Total size of files in current directory
-        PS1+="(\[${GREEN}\]$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')\[${DARKGRAY}\]:"
-
-        # Number of files
-        PS1+="\[${GREEN}\]\$(/bin/ls -A -1 | /usr/bin/wc -l)\[${DARKGRAY}\])"
-
-        #Panda
-        PS1+="🐼"
-
-        # Skip to the next line
-        PS1+="\n"
-
-        if [[ $EUID -ne 0 ]]; then
-                PS1+="\[${GREEN}\]>\[${NOCOLOR}\] " # Normal user
-        else
-                PS1+="\[${RED}\]>\[${NOCOLOR}\] " # Root user
-        fi
-
-        # PS2 is used to continue a command using the \ character
-        PS2="\[${DARKGRAY}\]>\[${NOCOLOR}\] "
-
-        # PS3 is used to enter a number choice in a script
-        PS3='Please enter a number from above list: '
-
-        # PS4 is used for tracing a script in debug mode
-        PS4='\[${DARKGRAY}\]+\[${NOCOLOR}\] '
+    if [[ $EUID -ne 0 ]]; then
+        PS1+="\[${GREEN}\]>\[${NOCOLOR}\] "
+    else
+        PS1+="\[${RED}\]>\[${NOCOLOR}\] "
+    fi
 }
+
 PROMPT_COMMAND='__setprompt'
+export SHORT=false
