@@ -771,7 +771,7 @@ function __setprompt {
 
     # Date et heure
     PS1+="\[${DARKGRAY}\](\[$CYAN\]\$(date +%a) \$(date +%b-'%-m')"
-    PS1+="\[$BLUE\] \$(date +'%-I':%M:%S%P')\[$DARKGRAY\])"
+    PS1+="\[$BLUE\]\$(date +'%I:%M:%S%p')\[$DARKGRAY\])"
 
     # CPU et RAM
     PS1+="-\[$MAGENTA\]CPU \$(cpu)% \[$DARKGRAY\]|\[$MAGENTA\] RAM \$(ram_usage)\[$DARKGRAY\])"
