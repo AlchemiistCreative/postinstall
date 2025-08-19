@@ -786,6 +786,12 @@ function __setprompt
 
         # Git
         PS1+=" \[${GREEN}\]\$(__git_branch)"
+         
+
+        # KUBE PS1 If installed
+        if [ -s ~/.k8s-tools/kube-ps1.sh ]; then
+           source ~/.k8s-tools/kube-ps1.sh
+        fi
 
         # Kube context
         if type kube_ps1 &>/dev/null; then
