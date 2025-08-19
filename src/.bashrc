@@ -785,7 +785,7 @@ function __setprompt
         PS1+="\[${DARKGRAY}\]:\[${GREEN}\]\$(/bin/ls -A -1 | /usr/bin/wc -l)\[${DARKGRAY}\])"
 
         # Git
-        PS1+=" \[${GREEN}\]\$(__git_branch)"
+        PS1+="\[\033[0;32m\]\[$(__git_branch)\] "
          
 
         # KUBE PS1 If installed
@@ -795,11 +795,12 @@ function __setprompt
 
         # Kube context
         if type kube_ps1 &>/dev/null; then
-            PS1+=" \[${CYAN}\]\$(kube_ps1)"
+            PS1+="\[\033[0;36m\]\[$(kube_ps1)\] "
         fi
 
         # Panda emoji
         PS1+=" 🐼\n"
+        PS1+="\[\033[0m\]🐼"
 
         # Final prompt char
         if [[ $EUID -ne 0 ]]; then
