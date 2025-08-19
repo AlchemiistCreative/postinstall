@@ -329,7 +329,7 @@ full() {
   __setprompt
 }
 
-git_branch() {
+__git_branch() {
   if git rev-parse --git-dir > /dev/null 2>&1; then
     echo -n " (git:$(git rev-parse --abbrev-ref HEAD 2>/dev/null))"
   fi
