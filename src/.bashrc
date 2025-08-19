@@ -331,7 +331,9 @@ full() {
 
 __git_branch() {
   if git rev-parse --git-dir > /dev/null 2>&1; then
-    echo -n " (git:$(git rev-parse --abbrev-ref HEAD 2>/dev/null))"
+    echo -n "git:$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" 
+  else
+    echo "N/A"
   fi
 }
 
@@ -762,7 +764,7 @@ function __setprompt {
         source ~/.k8s-tools/kube-ps1.sh
     fi
     if type kube_ps1 &>/dev/null; then
-        PS1+="-\[\033[1;94m\](\$(kube_ps1))"
+        PS1+="-\[\033[1;94m\]\$(kube_ps1)"
     fi
 
     # 🐼 newline
