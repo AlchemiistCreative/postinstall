@@ -710,51 +710,104 @@ ram_usage() {
 
 alias cpu="grep 'cpu ' /proc/stat | awk '{usage=(\$2+\$4)*100/(\$2+\$4+\$5)} END {print usage}' | awk '{printf(\"%.1f\n\", \$1)}'"
 
-function __setprompt {
-  local EXIT=$?
-  local RESET="\[\e[0m\]"
+function __setprompt
+{
+        local LAST_COMMAND=$? # Must come first!
 
-  local GRAY="\[\e[38;5;240m\]"
-  local GREEN="\[\e[38;5;42m\]"
-  local RED="\[\e[38;5;196m\]"
-  local YELLOW="\[\e[38;5;178m\]"
-  local CYAN="\[\e[38;5;44m\]"
-  local MAGENTA="\[\e[38;5;141m\]"
+        # Define colors
+        local LIGHTGRAY="\033[0;37m"
+        local WHITE="\033[1;37m"
+        local BLACK="\033[0;30m"
+        local DARKGRAY="\033[1;30m"
+        local RED="\033[0;31m"
+        local LIGHTRED="\033[1;31m"
+        local GREEN="\033[0;32m"
+        local LIGHTGREEN="\033[1;32m"
+        local BROWN="\033[0;33m"
+        local YELLOW="\033[1;33m"
+        local BLUE="\033[0;34m"
+        local LIGHTBLUE="\033[1;34m"
+        local MAGENTA="\033[0;35m"
+        local LIGHTMAGENTA="\033[1;35m"
+        local CYAN="\033[0;36m"
+        local LIGHTCYAN="\033[1;36m"
+        local NOCOLOR="\033[0m"
 
-  # Prompt court
-  if [[ "$SHORT" == "true" ]]; then
-    PS1="${GRAY}(\[\e[38;5;110m\]\u@\h${GRAY}:\[\e[38;5;80m\]\w${GRAY})${RESET}"
-    PS1+=" ${MAGENTA}\$(git_branch)${RESET}"
-    PS1+=" ${CYAN}\$(kube_ps1)${RESET}"
-    PS1+=" 🐼 "
-    return
-  fi
+        PS1=""
 
-  # Prompt long
-  local CPU_RAM="CPU \$(top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\([0-9.]*\)%* id.*/\1/' | awk '{print 100 - \$1}')% | RAM \$(free -h | awk '/Mem:/ {print \$3\"/\"\$2}')"
-  local DISK="💾 \$(df -h / | awk 'NR==2{print \$3 \" / \" \$2 \" used (\" \$5 \")\"}')"
-  local IP_ADDR="\$(hostname -I | awk '{print \$1}')"
-  local UPTIME_STR="\$(uptime -p | cut -d ' ' -f2-)"
+        if [[ "$SHORT" == "true" ]]; then
+            PS1="\[${RED}\]\u@\h"
+            PS1+="\[${DARKGRAY}\]:\[${BROWN}\]\w"
+            PS1+=" \[${GREEN}\]\$(__git_branch)"
+            if type kube_ps1 &>/dev/null; then
+                PS1+=" \[${CYAN}\]\$(kube_ps1)"
+            fi
+            PS1+=" 🐼\n"
+            PS1+="\[${GREEN}\]>\[${NOCOLOR}\] "
+            return
+        fi
 
-  PS1="\n${GRAY}by ${MAGENTA}alchemist${RESET}\n"
-  PS1+="🕒 Uptime      : ${YELLOW}${UPTIME_STR}${RESET}\n"
-  PS1+="🧠 RAM         : ${YELLOW}\$(free -h | awk '/Mem:/ {print \$3\" / \"\$2}')${RESET}\n"
-  PS1+="📡 IP Adresse  : ${YELLOW}${IP_ADDR}${RESET}\n"
-  PS1+="${DISK}\n"
+        if [[ $LAST_COMMAND != 0 ]]; then
+                PS1="\[${DARKGRAY}\](\[${LIGHTRED}\]ERROR\[${DARKGRAY}\])-(\[${RED}\]Exit Code \[${LIGHTRED}\]${LAST_COMMAND}\[${DARKGRAY}\])-(\[${RED}\]"
+                case $LAST_COMMAND in
+                        1)   PS1+="General error";;
+                        2)   PS1+="Missing keyword, command, or permission problem";;
+                        126) PS1+="Permission problem or command is not an executable";;
+                        127) PS1+="Command not found";;
+                        128) PS1+="Invalid argument to exit";;
+                        129) PS1+="Fatal error signal 1";;
+                        130) PS1+="Script terminated by Control-C";;
+                        131) PS1+="Fatal error signal 3";;
+                        132) PS1+="Fatal error signal 4";;
+                        133) PS1+="Fatal error signal 5";;
+                        134) PS1+="Fatal error signal 6";;
+                        135) PS1+="Fatal error signal 7";;
+                        136) PS1+="Fatal error signal 8";;
+                        137) PS1+="Fatal error signal 9";;
+                        *)   PS1+="Unknown error code";;
+                esac
+                PS1+="\[${DARKGRAY}\])\[${NOCOLOR}\]\n"
+        fi
 
-  PS1+="\$(if ! command -v gcloud &> /dev/null; then echo \"${GRAY}gcloud CLI not found. Install it to use 'gssh'.${RESET}\"; fi)\n"
+        # Date and Time
+        PS1+="\[${DARKGRAY}\](\[${CYAN}\]\$(date +%a) $(date +%b-'%-m')"
+        PS1+="${BLUE} $(date +'%-I':%M:%S%P)\[${DARKGRAY}\])"
 
-  PS1+="${GRAY}(\[\e[38;5;110m\]\u@\h${GRAY}:\[\e[38;5;80m\]\w${GRAY})"
-  PS1+=" ${MAGENTA}\$(git_branch)${RESET}"
-  PS1+=" ${CYAN}\$(kube_ps1)${RESET} 🐼\n"
+        # CPU + RAM
+        PS1+="-(\[${MAGENTA}\]CPU $(cpu)% | RAM $(ram_usage)\[${DARKGRAY}\])"
 
-  if [[ $EXIT -eq 0 ]]; then
-    PS1+="${GREEN}> ${RESET}"
-  else
-    PS1+="${RED}(ERROR)-${GRAY}(Exit Code ${EXIT})${RESET} ${RED}> ${RESET}"
-  fi
+        # User@Host + Path
+        PS1+="-(\[${RED}\]\u@$(hostname -f 2>/dev/null || hostname)"
+        PS1+="\[${DARKGRAY}\]:\[${BROWN}\]\w\[${DARKGRAY}\])"
+
+        # Dir summary
+        PS1+="(\[${GREEN}\]$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')"
+        PS1+="\[${DARKGRAY}\]:\[${GREEN}\]\$(/bin/ls -A -1 | /usr/bin/wc -l)\[${DARKGRAY}\])"
+
+        # Git
+        PS1+=" \[${GREEN}\]\$(__git_branch)"
+
+        # Kube context
+        if type kube_ps1 &>/dev/null; then
+            PS1+=" \[${CYAN}\]\$(kube_ps1)"
+        fi
+
+        # Panda emoji
+        PS1+=" 🐼\n"
+
+        # Final prompt char
+        if [[ $EUID -ne 0 ]]; then
+                PS1+="\[${GREEN}\]>\[${NOCOLOR}\] "
+        else
+                PS1+="\[${RED}\]>\[${NOCOLOR}\] "
+        fi
+
+        PS2="\[${DARKGRAY}\]>\[${NOCOLOR}\] "
+        PS3='Please enter a number from above list: '
+        PS4='\[${DARKGRAY}\]+\[${NOCOLOR}\] '
 }
 
-
-PROMPT_COMMAND='__setprompt'
+# Default to full mode
 export SHORT=false
+__setprompt
+PROMPT_COMMAND=__setprompt
